@@ -1,0 +1,522 @@
+---
+title: "Experimental Data Inspection and Illustrations"
+author: "Anton Drasbæk"
+date: "10/20/2022"
+output: html_document
+---
+# Description
+This R-markdown is used to process, inspect and illustrate data from participants in Experiment A. The data is directly accessed through an API from SoSciSurvey. 
+
+It can be seperated into the following sections after this description:
+1) Loading Packages and Data
+2) Preprocessing
+3) Early Inspections
+4) Detailed Plotting
+5) Statistical Evaluations
+
+# Load Packages and Data
+## Load packages
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+pacman::p_load(httr, tidyverse, cvms, lme4)
+```
+
+## Load data
+```{r}
+api.link <- "https://www.soscisurvey.de/nyheder-kunstig-intelligens/?act=VZcjsI0nAldCV1mJx2etluzi"
+api.response <- httr::GET(api.link)
+
+data <- read.csv(text = httr::content(api.response, as = "text"), sep = "\t", na.strings = "") # read in dataframe
+rm(api.link, api.response)
+```
+
+# Preprocessing
+Remove irrelevant columns
+```{r}
+data <- data %>% 
+  select(-SERIAL, -REF, -QUESTNNR, -STARTED, -C003, -C003_01, -D102, -R001_CP, 
+         -TIME001, -TIME003, -TIME004, -TIME005, -TIME006, -TIME007, -TIME008, -TIME009,
+         -TIME010, -TIME011, -TIME012, -TIME013, -TIME014, -TIME015, -TIME016, -TIME017,
+         -TIME018, -TIME019, -TIME020, -TIME021, -TIME022, -TIME023, -TIME024, -TIME002,
+         -TIME_SUM, -MAILSENT, -LASTDATA, -Q_VIEWER, -LASTPAGE, -MAXPAGE, -FINISHED, -D001
+         )
+```
+
+Remove NAs
+```{r}
+data <- data %>% drop_na(D103)
+```
+
+
+Rename columns to prepare for reshape
+```{r}
+data <- data %>% 
+  rename("AA_01" = "AA01", "AA_02" = "AA02",
+         "AA_03" = "AA03", "AA_04" = "AA04",
+         "AA_05" = "AA05", "AA_06" = "AA06",
+         "AA_07" = "AA07", "AA_08" = "AA08",
+         "AA_09" = "AA09", "AA_10" = "AA10",
+         "AA_11" = "AA11", "AA_12" = "AA12",
+         "AA_13" = "AA13", "AA_14" = "AA14",
+         "AA_15" = "AA15", "AA_16" = "AA16",
+         "CO_01" = "Q201_01", "CO_02" = "Q202_01",
+         "CO_03" = "Q203_01", "CO_04" = "Q204_01",
+         "CO_05" = "Q205_01", "CO_06" = "Q206_01",
+         "CO_07" = "Q207_01", "CO_08" = "Q208_01",
+         "CO_09" = "Q209_01", "CO_10" = "Q210_01",
+         "CO_11" = "Q211_01", "CO_12" = "Q212_01",
+         "CO_13" = "Q213_01", "CO_14" = "Q214_01",
+         "CO_15" = "Q215_01", "CO_16" = "Q216_01",
+         "LA_01" = "Q301", "LA_02" = "Q302",
+         "LA_03" = "Q303", "LA_04" = "Q304",
+         "LA_05" = "Q305", "LA_06" = "Q306",
+         "LA_07" = "Q307", "LA_08" = "Q308",
+         "LA_09" = "Q309", "LA_10" = "Q310",
+         "LA_11" = "Q311", "LA_12" = "Q312",
+         "LA_13" = "Q313", "LA_14" = "Q314",
+         "LA_15" = "Q315", "LA_16" = "Q316",
+         "FA_01" = "Q401", "FA_02" = "Q402",
+         "FA_03" = "Q403", "FA_04" = "Q404",
+         "FA_05" = "Q405", "FA_06" = "Q406",
+         "FA_07" = "Q407", "FA_08" = "Q408",
+         "FA_09" = "Q409", "FA_10" = "Q410",
+         "FA_11" = "Q411", "FA_12" = "Q412",
+         "FA_13" = "Q413", "FA_14" = "Q414",
+         "FA_15" = "Q415", "FA_16" = "Q416"
+         )
+
+data <- reshape(data, varying = c("AA_01", "AA_02", "AA_03", "AA_04",
+                                  "AA_05", "AA_06", "AA_07", "AA_08",
+                                  "AA_09", "AA_10", "AA_11", "AA_12",
+                                  "AA_13", "AA_14", "AA_15", "AA_16",
+                                  "CO_01", "CO_02", "CO_03", "CO_04",
+                                  "CO_05", "CO_06", "CO_07", "CO_08",
+                                  "CO_09", "CO_10", "CO_11", "CO_12",
+                                  "CO_13", "CO_14", "CO_15", "CO_16",
+                                  "LA_01", "LA_02", "LA_03", "LA_04",
+                                  "LA_05", "LA_06", "LA_07", "LA_08",
+                                  "LA_09", "LA_10", "LA_11", "LA_12",
+                                  "LA_13", "LA_14", "LA_15", "LA_16",
+                                  "FA_01", "FA_02", "FA_03", "FA_04",
+                                  "FA_05", "FA_06", "FA_07", "FA_08",
+                                  "FA_09", "FA_10", "FA_11", "FA_12",
+                                  "FA_13", "FA_14", "FA_15", "FA_16"), direction = "long", idvar = "CASE", sep = "_")
+
+```
+
+Rename columns and rearrange them
+```{r}
+data <- data %>% 
+  rename("age" = "D002_01",
+         "gender" = "D003", 
+         "student" = "D004", 
+         "study" = "D005_01",
+         "how_often_do_you_read_news" = "D101",
+         "tv2_nyhederne" = "D102_01",
+         "dr" = "D102_02",
+         "politiken" = "D102_03",
+         "information" = "D102_04",
+         "berlingske" = "D102_05",
+         "jyllands_posten" = "D102_06",
+         "b.t" = "D102_07",
+         "ekstra_bladet" = "D102_08",
+         "dagens.dk" = "D102_09",
+         "zetland" = "D102_10",
+         "other_media" = "D102_11",
+         "gpt3_knowledge" = "D103",
+         "hm_answer" = "AA",
+         "confidence" = "CO",
+         "language_errors" = "LA",
+         "factual_errors" = "FA",
+         "id" = "CASE",
+         "group" = "R001"
+         )
+```
+
+Make trial column
+```{r}
+data$trial <- c(rep(01, nrow(data)/16), rep(2, nrow(data)/16),
+                rep(3, nrow(data)/16), rep(4, nrow(data)/16),
+                rep(5, nrow(data)/16), rep(6, nrow(data)/16),
+                rep(7, nrow(data)/16), rep(8, nrow(data)/16),
+                rep(9, nrow(data)/16), rep(10, nrow(data)/16),
+                rep(11, nrow(data)/16), rep(12, nrow(data)/16),
+                rep(13, nrow(data)/16), rep(14, nrow(data)/16),
+                rep(15, nrow(data)/16), rep(16, nrow(data)/16))
+
+```
+
+Fix order
+```{r}
+data[data == "P1"] <- 1
+data[data == "P2"] <- 2
+data[data == "P3"] <- 3
+data[data == "P4"] <- 4
+data[data == "P5"] <- 5
+data[data == "P6"] <- 6
+data[data == "P7"] <- 7
+data[data == "P8"] <- 8
+data[data == "P9"] <- 9
+data[data == "P10"] <- 10
+data[data == "P11"] <- 11
+data[data == "P12"] <- 12
+data[data == "P13"] <- 13
+data[data == "P14"] <- 14
+data[data == "P15"] <- 15
+data[data == "P16"] <- 16
+
+data$order <- ifelse(data$trial == data$IV01_01, 1, 
+                     ifelse(data$trial == data$IV01_02, 2,
+                            ifelse(data$trial == data$IV01_03, 3,
+                                   ifelse(data$trial == data$IV01_04, 4,
+                                          ifelse(data$trial == data$IV01_05, 5,
+                                                 ifelse(data$trial == data$IV01_06, 6,
+                                                        ifelse(data$trial == data$IV01_07, 7,
+                                                               ifelse(data$trial == data$IV01_08, 8,
+                                                                      ifelse(data$trial == data$IV01_09, 9,
+                                                                             ifelse(data$trial == data$IV01_10, 10,
+                                                                                    ifelse(data$trial == data$IV01_11, 11,
+                                                                                           ifelse(data$trial == data$IV01_12, 12,
+                                                                                                  ifelse(data$trial == data$IV01_13, 13,
+                                                                                                         ifelse(data$trial == data$IV01_14, 14,
+                                                                                                                ifelse(data$trial == data$IV01_15, 15,
+                                                                                                                       ifelse(data$trial == data$IV01_16, 16, NA
+                            
+))))))))))))))))
+```
+
+Again deselect columns
+```{r}
+data <- data %>% 
+  select(-IV01_01,-IV01_02,-IV01_03,-IV01_04,
+         -IV01_05,-IV01_06,-IV01_07,-IV01_08,
+         -IV01_09,-IV01_10,-IV01_11,-IV01_12,
+         -IV01_13,-IV01_14,-IV01_15,-IV01_16,
+         -time)
+```
+
+Create new columns
+```{r}
+data$hm_correct <- ifelse(data$trial > 8, 2, 1)
+
+data <- data %>% 
+  mutate(trial = case_when(trial == "1" ~ "01",
+                           trial == "2" ~ "02",
+                           trial == "3" ~ "03",
+                           trial == "4" ~ "04",
+                           trial == "5" ~ "05",
+                           trial == "6" ~ "06",
+                           trial == "7" ~ "07",
+                           trial == "8" ~ "08",
+                           trial == "9" ~ "09",
+                           TRUE ~ as.character(trial)))
+
+data$article <- paste0("X", data$group, data$trial)
+
+data <- data %>% 
+  select(-trial)
+
+data$accuracy <- ifelse(data$hm_correct == data$hm_answer, 1, 0)
+```
+
+Fix people that are stupid (jk)
+```{r}
+data <- data %>% 
+  mutate(age = case_when(age == "21 år" ~ "21",
+                         TRUE ~ as.character(age)))
+data$age <- as.numeric(data$age)
+```
+
+
+Rearrange columns
+```{r}
+data <- data %>% 
+  select(id, gender, age, article, order, hm_answer, hm_correct, accuracy, confidence, language_errors,
+               factual_errors, group, MODE, student, study, how_often_do_you_read_news, tv2_nyhederne, dr, politiken, 
+               information, berlingske, jyllands_posten, b.t, ekstra_bladet, dagens.dk, zetland, other_media,
+               gpt3_knowledge
+               )
+```
+
+
+
+# Early Inspections
+Participant counter
+```{r}
+data %>% 
+  group_by(group) %>%
+  summarize(n = n()/16)
+
+print(nrow(data)/16)
+```
+
+Mean age
+```{r}
+mean(as.numeric(data$age))
+sd(data$age)
+```
+
+Mean accuracy on ONLY GPT-3 articles
+```{r}
+data %>% 
+  filter(hm_correct == 2) %>% 
+  summarize("How many percent of GPT-3 articles were classified correctly?" = mean(accuracy))
+
+
+data %>% 
+  summarize("How many percent were classified correctly?" = mean(accuracy),
+            "Standard Deviation" = sd(accuracy))
+
+
+```
+
+Seeing which articles that are easiest to identify and hardest
+```{r}
+easy <- data %>% 
+  group_by(article) %>% 
+  summarize("Lowest Accuracies" = mean(accuracy)) %>% 
+  arrange(`Lowest Accuracies`) %>% 
+  head(5)
+
+hard <- data %>% 
+  group_by(article) %>% 
+  summarize("Highest Accuracies" = mean(accuracy)) %>% 
+  arrange(desc(`Highest Accuracies`)) %>% 
+  head(5)
+
+print(easy)
+print(hard)
+rm(easy, hard)
+```
+
+Does X perform better than other groups?
+```{r}
+ggplot(data %>% filter(hm_correct == 2), aes(x = as.factor(gpt3_knowledge), y = accuracy, fill = as.factor(gpt3_knowledge))) +
+  geom_bar(stat='summary', fun = 'mean', width=0.7, position=position_dodge()) +
+  geom_errorbar(stat='summary', fun.data = mean_se, width=0.4, position=position_dodge(0.7))
+```
+
+
+# Detailed Plotting 
+Hit-miss confusion matrix for participant responses
+```{r}
+confusion <- table(data[,6:7])
+confusion <- as_tibble(confusion)
+
+plot_confusion_matrix(confusion,
+                      target_col = "hm_correct",
+                      prediction_col = "hm_answer",
+                      counts_col = "n")
+
+
+confusion %>% 
+  gt(
+    rownames_to_stub =  TRUE
+  ) %>% 
+  gt_theme_nytimes()
+
+
+# Set up the data frame
+df <- data.frame(confusion)
+colnames(df) <- c("Predicted", "Actual")
+
+# Create the confusion matrix table
+gt(df,
+   caption = "Confusion Matrix",
+   col_labels = c("Predicted", "Actual"),
+   style = cell_text_clip(),
+   cell_text = df,
+   cell_fill = gt_color_interpolate(color_gradient("white", "steelblue"), df, filter_fun = identity, legend_title = "Value"))
+
+```
+
+
+Distribution of average accuracies
+```{r}
+participant_accuracy_distribution <- data %>% 
+  group_by(id) %>% 
+  summarize(accuracy = mean(accuracy)) %>% 
+  ggplot(aes(x = accuracy)) +
+  geom_histogram(binwidth = 0.075, color = "#1fc7ad", fill = "#ACF2E7") + 
+  scale_x_continuous(limits = c(0.1,0.9), breaks = c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)) +
+  scale_y_continuous(breaks = c(0, 5, 10, 15, 20, 25, 30, 35, 40)) + 
+  labs(x="PARTICIPANT MEAN ACCURACIES",
+       y = "COUNT") +
+  theme(text = element_text(family = "Libre Franklin"),
+        plot.margin = margin(0.25,0.25,0.5,0.5, "cm"),
+        axis.title.x = element_text(vjust = -3),
+        axis.title.y = element_text(vjust = 5),
+        axis.title = element_text(size = 9, color = "darkgrey", family = "Libre Franklin"),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "darkgrey"), 
+        axis.ticks = element_line(colour = "darkgrey"))
+
+ggsave(participant_accuracy_distribution, filename = "./figures/participant_accuracy_distribution.png", dpi = 300, type = "cairo", width = 7, height = 7, units = "in")
+
+```
+
+Confidence histogram - how is confidence distributed?
+```{r}
+plot_data <- data
+plot_data$accuracy[plot_data$accuracy == 1] <- "CORRECT"
+plot_data$accuracy[plot_data$accuracy == 0] <- "INCORRECT"
+
+confidence_distribution <- ggplot(plot_data, aes(x = as.character(confidence), fill = as.factor(accuracy))) +
+  geom_bar(position="stack") +
+  scale_fill_manual(values=c("#1fc7ad", "#ACF2E7")) +
+  labs(x = "CONFIDENCE",
+       y = "COUNT") +
+  scale_y_continuous(limits = c(0, 600), breaks = c(0, 100, 200, 300, 400, 500, 600)) + 
+  guides(fill=guide_legend(title="Classification\nAccuracy")) +
+  theme(text = element_text(family = "Libre Franklin"),
+        plot.margin = margin(0.25,0.25,0.5,0.5, "cm"),
+        axis.title.x = element_text(vjust = -3),
+        axis.title.y = element_text(vjust = 5),
+        axis.title = element_text(size = 9, color = "darkgrey"),
+        axis.line = element_line(colour = "darkgrey"), 
+        axis.ticks = element_line(colour = "darkgrey", size = 0.7),
+        legend.title = element_text(size = 11),
+        legend.text = element_text(colour = "darkgrey", size = 7),
+        legend.position = c(0.92, 0.93),
+        panel.background = element_blank())
+
+ggsave(confidence_distribution, filename = "./figures/confidence_distribution.png", dpi = 300, type = "cairo", width = 6, height = 6, units = "in")
+```
+
+Does confidence decrease over time?
+```{r}
+confidence_over_time <- data %>% 
+  group_by(order) %>% 
+  summarize(confidence = mean(confidence)) %>% 
+  ggplot(aes(x = order, y = confidence)) +
+  geom_point(color = "#ACF2E7", size = 3) +
+  geom_smooth(method = "lm", color = "#1fc7ad", alpha = 0.1, size = 1.5) +
+  labs(x = "TRIAL NUMBER",
+       y = "CONFIDENCE") +
+  scale_y_continuous(limits = c(2.6, 3.4), breaks = c(2.6, 2.8, 3, 3.2, 3.2, 3.4)) + 
+  scale_x_continuous(breaks = c(2, 4, 6, 8, 10, 12, 14, 16)) +
+  theme(text = element_text(family = "Libre Franklin"),
+        plot.margin = margin(0.25,0.25,0.5,0.5, "cm"),
+        axis.title.x = element_text(vjust = -3),
+        axis.title.y = element_text(vjust = 5),
+        axis.title = element_text(size = 9, color = "darkgrey"),
+        axis.line = element_line(colour = "darkgrey"), 
+        axis.ticks = element_line(colour = "darkgrey", size = 0.7),
+        legend.title = element_text(size = 11),
+        legend.text = element_text(colour = "darkgrey", size = 7),
+        panel.background = element_blank())
+
+
+ggsave(confidence_over_time, filename = "./figures/confidence_over_time.png", dpi = 300, type = "cairo", width = 6, height = 6, units = "in")
+
+summary(lmerTest::lmer(confidence ~ order + (1|article) + (1|id), data=data))
+```
+
+What errors were marked?
+```{r}
+data$error <- ifelse(data$language_errors == 1 & data$factual_errors == 1, "Both",
+                     ifelse(data$language_errors == 1 & data$factual_errors == 2, "Language", 
+                            ifelse(data$language_errors == 2 & data$factual_errors == 1, "Factual", "None")))
+
+plot_data <- data
+plot_data$hm_answer[plot_data$hm_answer == 2] <- "SYNTHETIC"
+plot_data$hm_answer[plot_data$hm_answer == 1] <- "REAL"
+  
+error_types <- ggplot(plot_data, aes(x = error, group = hm_answer, fill = hm_answer)) + 
+  geom_bar(aes(fill = hm_answer)) +
+  labs(x = "MARKED ERROR TYPE",
+       y = "COUNT") +
+  scale_fill_manual(values=c("#1fc7ad", "#ACF2E7")) +
+  scale_y_continuous(breaks = c(0, 100, 200, 300, 400, 500, 600, 700)) + 
+  guides(fill=guide_legend(title="Participant\nClassification")) +
+  facet_wrap(.~hm_correct, labeller = labeller(hm_correct = c("1" = "Real Articles", "2" = "Synthetic Articles"))) +
+  theme_bw() +
+  theme(text = element_text(family = "Libre Franklin"),
+        plot.margin = margin(0.25,0.25,0.5,0.5, "cm"),
+        axis.title.x = element_text(vjust = -3),
+        axis.title.y = element_text(vjust = 5),
+        axis.title = element_text(size = 9, color = "darkgrey"),
+        axis.line = element_line(colour = "darkgrey"), 
+        axis.ticks = element_line(colour = "darkgrey", size = 0.7),
+        legend.title = element_text(size = 11),
+        legend.text = element_text(colour = "darkgrey", size = 7),
+        legend.position = "right",
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        strip.background = element_rect(fill = "white"),
+        strip.text = element_text(size = 15, face = "bold"))
+
+ggsave(error_types, filename = "./figures/error_types.png", dpi = 300, type = "cairo", width = 8, height = 7, units = "in")
+```
+
+```{r}
+data$error <- ifelse(data$language_errors == 1 & data$factual_errors == 1, "both errors",
+                     ifelse(data$language_errors == 1 & data$factual_errors == 2, "language error", 
+                            ifelse(data$language_errors == 2 & data$factual_errors == 1, "factual error", "no error")))
+
+ggplot(data, aes(x = error, group = error, fill = error)) + 
+  geom_bar() +
+  facet_wrap(.~accuracy, labeller = labeller(accuracy = c("0" = "Actually Human", "1" = "Actually AI"))) +
+  ggtitle("What errors were marked when participants answered 'Kunstig Intelligens'")
+
+ggplot(data %>% filter(hm_answer == 1), aes(x = error, group = error, fill = error)) + 
+  geom_bar() +
+  facet_wrap(.~accuracy, labeller = labeller(accuracy = c("0" = "Actually AI", "1" = "Actually Human"))) +
+  ggtitle("What errors were marked when participants answered 'Menneske'")
+```
+
+What errors were marked when participants answered "Kunstig intelligens"?
+```{r}
+data$error <- ifelse(data$language_errors == 1 & data$factual_errors == 1, "both errors",
+                     ifelse(data$language_errors == 1 & data$factual_errors == 2, "language error", 
+                            ifelse(data$language_errors == 2 & data$factual_errors == 1, "factual error", "no error")))
+
+ggplot(data %>% filter(hm_answer == 2), aes(x = error, group = error, fill = error)) + 
+  geom_bar() +
+  facet_wrap(.~accuracy, labeller = labeller(accuracy = c("0" = "Actually Human", "1" = "Actually AI"))) +
+  ggtitle("What errors were marked when participants answered 'Kunstig Intelligens'")
+
+ggplot(data %>% filter(hm_answer == 1), aes(x = error, group = error, fill = error)) + 
+  geom_bar() +
+  facet_wrap(.~accuracy, labeller = labeller(accuracy = c("0" = "Actually AI", "1" = "Actually Human"))) +
+  ggtitle("What errors were marked when participants answered 'Menneske'")
+```
+
+# Statistical Evaluations
+Model to see if domain expertise enhances performance
+```{r}
+# change how_often_do_you_read_news so that we get a baseline which is never instead of often
+data_models <- data
+
+data_models$news_consumption <- ifelse(data_models$how_often_do_you_read_news == 1, 5, ifelse(
+  data_models$how_often_do_you_read_news == 2, 4, ifelse(
+    data_models$how_often_do_you_read_news == 4, 2, ifelse(
+      data_models$how_often_do_you_read_news == 5, 1, 3))))
+
+# run model
+m1 <- lme4::glmer(accuracy ~ as.factor(news_consumption) + as.factor(gpt3_knowledge) + (1|article), family = binomial, data=data_models)
+
+summary(m1)
+
+boot::inv.logit(0.32738)
+boot::inv.logit(0.47842)
+```
+
+
+For classifiers: All articles (average answers)
+```{r}
+# make 2s into 0s
+average_answers <- data
+average_answers$hm_answer[average_answers$hm_answer == 2] <- 0
+average_answers$hm_correct[average_answers$hm_correct == 2] <- 0
+
+average_answers <- average_answers %>% 
+  group_by(article) %>% 
+  summarize("human_probability" = mean(hm_answer),
+            "true_label" = mean(hm_correct))
+
+average_answers$prediction_human <- ifelse(average_answers$human_probability < 0.5, 0, 1)
+average_answers$human_probability <- ifelse(average_answers$prediction_human == 0, 1-average_answers$human_probability, average_answers$human_probability)
+
+#write_csv(average_answers, "human_predictions.csv")
+```

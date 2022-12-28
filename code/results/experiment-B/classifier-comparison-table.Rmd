@@ -1,0 +1,123 @@
+---
+title: "classifier-comparison"
+author: "Mina Almasi & Anton Drasbæk"
+date: '2022-12-17'
+output: html_document
+---
+
+# Description
+This file shows how the table for comparing classifiers was created
+
+
+# Load Packages and Data
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(gt)
+library(gtExtras)
+library(caret)
+```
+
+```{r}
+data <- read_csv("/Users/minaalmasi/Desktop/dknews-GPT3/data/data-evaluate-models/all-model-results.csv")
+colnames(data)
+```
+
+```{r}
+human_data <- read_csv("/Users/minaalmasi/Desktop/dknews-GPT3/data/data-experiment/experiment_data_processed.csv")
+```
+
+# Calculating F1, Accuracy for human data
+```{r}
+accuracy <- human_data %>% 
+  summarize("Accuracy" = mean(accuracy))
+
+
+TP <- 601 #true positives
+FP <- 445 #false positives
+TN <- 515 #true negatives
+FN <- 359 #false negatives
+
+overall_classifications <- sum(TP, FP, TN, FN)
+
+accuracy
+precision <- TP/(TP + FP)
+recall <- TP/(TP + FN)
+model <- "Human"
+F1 <- 2 * (precision*recall)/(precision + recall)
+
+human_stats <- tibble("Model" = model, accuracy, F1, "Precision" = precision, "Recall" = recall)
+```
+
+```{r}
+data <- rbind(human_stats, data)
+```
+
+Rename some stuff: 
+```{r}
+data <- data %>% rename("Classifier" = "Model")
+data$Classifier[data$Classifier == "BERT"] <- "BERT (fine-tuned)" 
+```
+
+# Creating Table for Accuracy, F1, Precision, Recall across all classifiers
+```{r}
+all_classifiers <- head(data) %>%
+  gt() %>%
+  fmt_number(columns = c("Accuracy", "F1", "Precision", "Recall"), decimals = 3) %>% 
+  gt_theme_espn() %>%
+  opt_horizontal_padding(scale = 1.5) %>%
+  cols_align(align = "center", columns = c("Accuracy", "F1", "Precision", "Recall"))  %>%
+  opt_table_font(google_font(name = "Libre Franklin"), weight = NULL, style = NULL, add = TRUE)
+
+all_classifiers
+```
+
+```{r}
+#gtsave(all_classifiers, filename = "test_performance_classification.png", path = "./figures", expand =20)
+```
+
+# Creating table for HIT/MISS values
+```{r}
+human <- tibble("classifier" = "Human", "TP"="62.6%", "TN"="53.6%", "FP"="46.4%", "FN"="37.4%")
+bow <- tibble("classifier"="Bag-of-Words", "TP"="77.1%", "TN"="83.3%", "FP"="16.7%", "FN"="22.9%")
+tfid <- tibble("classifier"="TF-IDF","TP"="79.2%", "TN"="81.3%", "FP"="18.8%", "FN"="20.8%")
+bert <- tibble("classifier"="BERT (fine-tuned)","TP"="87.5%", "TN"="97.9%", "FP"="2.1%", "FN"="12.5%")
+
+hit_miss_stats <- rbind(human, bow, tfid, bert)
+```
+
+```{r}
+hit_miss <- head(hit_miss_stats) %>%
+  gt() %>%
+  gt_theme_espn() %>%
+  opt_horizontal_padding(scale = 2) %>%
+  cols_align(align = "center", columns = c("TP", "TN", "FP", "FN"))  %>%
+  opt_table_font(google_font(name = "Libre Franklin"), weight = NULL, style = NULL, add = TRUE)
+
+
+hit_miss
+```
+
+```{r}
+#gtsave(hit_miss, filename = "hit-miss-all-classifiers.png", path = "./figures", expand =20)
+```
+
+# Calculating Average Probabilities for Calculations
+```{r}
+classifier_predictions <- read_csv("/Users/minaalmasi/Desktop/dknews-GPT3/data/classifiers-predictions/all_classifier_predictions.csv")
+```
+
+```{r}
+tibble(avg_bow_prob = mean(classifier_predictions$probability_bow),
+       avg_tfid_prob = mean(classifier_predictions$probability_tfid),
+       avg_bert_prob = mean(classifier_predictions$probability_bert)
+       )
+
+tibble(sd_bow_prob = sd(classifier_predictions$probability_bow),
+       sd_tfid_prob = sd(classifier_predictions$probability_tfid),
+       sd_bert_prob = sd(classifier_predictions$probability_bert)
+       )
+```

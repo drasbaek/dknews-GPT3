@@ -1,0 +1,86 @@
+---
+title: "nyheder_links"
+author: "Anton Drasbæk"
+date: "9/19/2022"
+output: html_document
+---
+# Description
+This file covers how the scraped articles were preprocessed (except shortening).
+
+# Load Packages and Data
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+read libraries
+```{r}
+library(tidyverse)
+library(readxl)
+```
+
+read data
+```{r}
+links <- read_csv("./data/articles (20. sep - 30. oct)/unprocessed articles (20. sep - 30. oct).csv")
+```
+
+# Preprocess Articles
+Rename sub-header to make work easier
+```{r}
+links <- links %>% 
+  rename(sub_header = `sub-header`)
+```
+
+Create topic column and filter away
+```{r}
+links$mixed_string <- strsplit(links$link_pagination, '[/]')
+
+for (i in 1:length(links$mixed_string)){
+  links$topic[i] <- links$mixed_string[[i]][4]
+}
+
+links <- links %>% 
+  select(-mixed_string) %>% 
+  filter(topic == "samfund")
+
+```
+
+Remove all "præcisering"
+```{r}
+links <- links %>% 
+  filter(!grepl("Præcisering",brødtekst)) %>% 
+  filter(!grepl("PRÆCISERING",brødtekst))
+```
+
+
+Collapse HTML elements corresponding to article bodies
+```{r}
+links <- links %>%
+  group_by(link_pagination, headers, sub_header, topic) %>%
+  summarise(tekst = toString(brødtekst)) %>%
+  ungroup()
+```
+
+Add word count columns
+```{r}
+links$nwords_headers <- str_count(links$headers, '\\w+')
+links$nwords_subheader <- str_count(links$sub_header, '\\w+')
+links$nwords_tekst <- str_count(links$tekst, '\\w+')
+```
+
+Remove error with artificial commas after dots.
+```{r}
+links$tekst <- gsub("\\.,", "\\.", links$tekst)
+```
+
+Remove all articles shorter than 100 words
+```{r}
+links <- links %>% 
+  filter(nwords_tekst > 100)
+```
+
+# Export Data
+```{r}
+write_csv(links, "./long_articles (20. sep - 30. oct).csv")
+```
+
+

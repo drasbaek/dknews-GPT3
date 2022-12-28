@@ -1,0 +1,61 @@
+---
+title: "BERT-finetuning-results"
+author: "Mina Almasi & Anton Drasbæk"
+date: '2022-12-17'
+output: html_document
+---
+# Description
+This file contains a table showing the fine-tuning results for the BERT classifier.
+
+# Load Packages and Data
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(gt)
+library(gtExtras)
+```
+
+
+```{r}
+data <- read_csv("/Users/minaalmasi/Desktop/dknews-GPT3/data/data-evaluate-models/fine-tuning-BERT-results.csv")
+```
+
+
+# Restructure Data
+reorder columns 
+```{r}
+columns <- c("Epoch", "Step", "Training Loss", "Validation Loss", "Accuracy", "F1", "Precision", "Recall")
+data <- data[, columns]
+```
+
+
+# Compute Table
+```{r}
+bert_table <- head(data) %>%
+  gt() %>%
+  fmt_number(columns = c("Training Loss", "Validation Loss", "Accuracy", "F1", "Precision", "Recall"), decimals = 3) %>% 
+  gt_theme_espn() %>%
+  tab_style(
+    style = list(
+      cell_fill(color = "#1fc7ad", alpha = 1)
+    ),
+    locations = cells_body(
+      columns = columns, # not needed if coloring all columns
+      rows = 2)
+  )  %>%
+  cols_align(align = "center", columns = everything())  %>%
+  opt_vertical_padding(scale = 1) %>%
+  opt_horizontal_padding(scale = 3) %>%
+  opt_table_font(google_font(name = "Libre Franklin"), weight = NULL, style = NULL, add = TRUE)
+
+bert_table
+```
+
+```{r}
+gtsave(bert_table, filename = "bert_table_fine.png", path = "/Users/minaalmasi/Desktop/dknews-GPT3/figures", expand = 30, zoom = 10)
+```
+
+
