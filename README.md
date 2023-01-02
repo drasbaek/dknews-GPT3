@@ -13,4 +13,4 @@
 Our trained classifier for detecting synthetic news is available on the *Hugging Face Hub* on this link:
 * https://huggingface.co/MinaAlmasi/dknews-NB-BERT-AI-classifier 
 
-The BERT model is a fine-tuned version of [NB-BERT-LARGE](https://huggingface.co/NbAiLab/nb-bert-large). More details regarding the our model is available on the aforementioned link. 
+The BERT model is a fine-tuned version of [NB-BERT-LARGE](https://huggingface.co/NbAiLab/nb-bert-large). More details regarding our model is available on the aforementioned link. 
